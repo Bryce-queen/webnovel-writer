@@ -1,16 +1,16 @@
 {
-  "name": "webnovel-writer",
-  "version": "6.2.0",
-  "description": "长篇网文创作系统（skills + agents + data chain + RAG）",
+  "name": "webnovel-writer-marvis",
+  "version": "1.0.6",
+  "description": "长篇网文创作系统（skills + agents + data chain + RAG）— Marvis 移植版",
   "author": {
     "name": "lingfengQAQ"
   },
-  "homepage": "https://github.com/lingfengQAQ/webnovel-writer",
-  "repository": "https://github.com/lingfengQAQ/webnovel-writer",
+  "homepage": "https://github.com/Bryce-queen/webnovel-writer-marvis",
+  "repository": "https://github.com/Bryce-queen/webnovel-writer-marvis",
   "license": "GPL-3.0",
   "keywords": [
     "webnovel",
-    "claude-code",
+    "marvis",
     "skills",
     "agents",
     "rag"
