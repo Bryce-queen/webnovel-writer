@@ -87,7 +87,7 @@ def test_guard_allows_runtime_projection_command():
         {
             "tool_name": "Bash",
             "tool_input": {
-                "command": 'python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" projections retry --chapter 3'
+                "command": 'python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" projections retry --chapter 3'
             },
         }
     )

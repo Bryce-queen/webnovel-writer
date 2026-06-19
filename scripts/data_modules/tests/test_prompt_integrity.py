@@ -470,7 +470,7 @@ def test_webnovel_write_skill_uses_chapter_commit_as_step5_mainline():
 def test_webnovel_write_skill_uses_project_root_backup_not_bare_git_add():
     text = (SKILLS_DIR / "webnovel-write" / "SKILL.md").read_text(encoding="utf-8")
     assert "webnovel.py" in text
-    assert "--project-root \"${PROJECT_ROOT}\" backup" in text
+    assert "--project-root \"{PROJECT_ROOT}\" backup" in text
     assert "git add ." not in text
 
 

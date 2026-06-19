@@ -16,7 +16,7 @@ argument-hint: "[章号或范围，如 5 或 1-5]"
 ## 红线
 
 - 必须通过 `Agent` 工具调用 `reviewer`，禁止主流程伪造结论或口头总结代替 subagent 输出。
-- reviewer 只返回严格 JSON；主流程负责把返回值写入 `${PROJECT_ROOT}/.webnovel/tmp/review_results.json`，随后由 `review-pipeline` 覆盖为标准 review_result artifact。
+- reviewer 只返回严格 JSON；主流程负责把返回值写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`，随后由 `review-pipeline` 覆盖为标准 review_result artifact。
 - 报告与 metrics 只由 `review-pipeline --save-metrics` 产出；主流程不伪造 `overall_score`。
 - 项目根不合法 / 缺 `.webnovel/state.json` / 缺待审正文 → 阻断。
 
@@ -35,9 +35,9 @@ export PROJECT_ROOT="$(python "{SKILL_ROOT}/scripts/webnovel.py" --project-root 
 目标章缺 runtime 合同时，先用详细大纲的真实本章目标刷新（`CHAPTER_GOAL` 禁止 `{章纲目标}` / `第N章章纲目标` 占位文本）：
 
 ```bash
-GENRE="$(python -X utf8 -c "import json; s=json.load(open('${PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
+GENRE="$(python -X utf8 -c "import json; s=json.load(open('{PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
 
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" \
   story-system "${CHAPTER_GOAL}" --genre "${GENRE}" --chapter {chapter_num} --persist --emit-runtime-contracts --format both
 ```
 
@@ -54,7 +54,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 ### Step 4：加载投影状态与待审正文
 
 ```bash
-cat "${PROJECT_ROOT}/.webnovel/state.json"
+cat "{PROJECT_ROOT}/.webnovel/state.json"
 ```
 
 确认当前章节号与对应正文文件；缺正文或缺兼容状态文件立即阻断。
@@ -66,10 +66,10 @@ cat "${PROJECT_ROOT}/.webnovel/state.json"
 ```text
 Use the Agent tool to run `webnovel-writer:reviewer`.
 
-Prompt: chapter={chapter_num}; chapter_file={chapter_file}; project_root=${PROJECT_ROOT}; scripts_dir=${SCRIPTS_DIR}。严格输出 reviewer schema JSON，不评分，不口头总结。
+Prompt: chapter={chapter_num}; chapter_file={chapter_file}; project_root={PROJECT_ROOT}; scripts_dir={SKILL_ROOT}/scripts。严格输出 reviewer schema JSON，不评分，不口头总结。
 ```
 
-reviewer 返回后，主流程把严格 JSON 写入 `${PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。`review-pipeline` 必须把同一路径覆盖为标准 review_result artifact（含 `blocking_count`）。
+reviewer 返回后，主流程把严格 JSON 写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。`review-pipeline` 必须把同一路径覆盖为标准 review_result artifact（含 `blocking_count`）。
 
 调用后主流程必须记录 `SubagentRun` 汇总（仅供最终报告使用）：
 
@@ -91,10 +91,10 @@ reviewer 跳过、失败、输出不完整、正文为空、维度跳过、block
 ### Step 6：生成报告并落库
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" review-pipeline \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" review-pipeline \
   --chapter {chapter_num} \
-  --review-results "${PROJECT_ROOT}/.webnovel/tmp/review_results.json" \
-  --metrics-out "${PROJECT_ROOT}/.webnovel/tmp/review_metrics.json" \
+  --review-results "{PROJECT_ROOT}/.webnovel/tmp/review_results.json" \
+  --metrics-out "{PROJECT_ROOT}/.webnovel/tmp/review_metrics.json" \
   --report-file "审查报告/第{chapter_num}章审查报告.md" \
   --save-metrics
 ```
@@ -104,7 +104,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 ### Step 7：写入兼容审查记录
 
 ```bash
-python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" update-state -- --add-review "{chapter_num}-{chapter_num}" "审查报告/第{chapter_num}章审查报告.md"
+python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" update-state -- --add-review "{chapter_num}-{chapter_num}" "审查报告/第{chapter_num}章审查报告.md"
 ```
 
 兼容投影 / read model，不是写后事实真源。
@@ -129,7 +129,7 @@ python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" updat
 审查开始前先说明本次会经历：定位待审正文 -> 刷新缺失合同 -> 写作检查 -> 生成报告和指标 -> 处理阻断裁决。过程提示用作者语言，不直接输出原始 JSON、traceback 或长命令日志；技术详情写入 `.webnovel/logs/run_last.log`：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" run-log \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" run-log \
   --event review-progress \
   --payload-json "{\"stage\": \"review\", \"chapter\": {chapter_num}}" \
   --format text
@@ -142,7 +142,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 不可恢复故障才在最终报告提示 `.webnovel/logs/run_last.log`；平时只保留日志，不打扰作者。收尾必须调用作者报告 helper：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" user-report \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" user-report \
   --stage review \
   --chapter {chapter_num} \
   --format text

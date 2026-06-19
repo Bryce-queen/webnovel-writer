@@ -51,7 +51,7 @@ export SKILL_ROOT="{SKILL_ROOT}/skills/webnovel-write"
 python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${WORKSPACE_ROOT}" preflight
 export PROJECT_ROOT="$(python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${WORKSPACE_ROOT}" where)"
 
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" placeholder-scan --format text
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" placeholder-scan --format text
 ```
 
 ### 准备：刷新合同树
@@ -59,12 +59,12 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 genre 从 `.webnovel/state.json` 的初始化配置快照读取，用于刷新合同树；写前主链真源仍是 `.story-system/` 合同。调用 story-system 前必须先从详细大纲解析真实本章目标，禁止传 `{章纲目标}`、`第N章章纲目标` 等占位 query。
 
 ```bash
-GENRE="$(python -X utf8 -c "import json,sys; s=json.load(open('${PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
+GENRE="$(python -X utf8 -c "import json,sys; s=json.load(open('{PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
 
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" \
   story-system "${CHAPTER_GOAL}" --genre "${GENRE}" --chapter {chapter_num} --persist --emit-runtime-contracts --format both
 
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" \
   write-gate --chapter {chapter_num} --stage prewrite --format json
 ```
 
@@ -87,10 +87,10 @@ Use the Agent tool to run `webnovel-writer:context-agent`.
 
 Task:
 - chapter={chapter_num}
-- project_root=${PROJECT_ROOT}
-- scripts_dir=${SCRIPTS_DIR}
-- storage_path=${PROJECT_ROOT}/.webnovel
-- state_file=${PROJECT_ROOT}/.webnovel/state.json（projection/read-model，仅兼容读取）
+- project_root={PROJECT_ROOT}
+- scripts_dir={SKILL_ROOT}/scripts
+- storage_path={PROJECT_ROOT}/.webnovel
+- state_file={PROJECT_ROOT}/.webnovel/state.json（projection/read-model，仅兼容读取）
 - 先 research，再按 本章硬性约束 → CBN/CPNs/CEN → 本章禁区 → 风格指引 → dynamic_context 补充参考 的顺序输出五段写作任务书。
 - 上下文不足时返回 blocker。
 
@@ -126,12 +126,12 @@ Use the Agent tool to run `webnovel-writer:reviewer`.
 Task:
 - chapter={chapter_num}
 - chapter_file=${CHAPTER_FILE}
-- project_root=${PROJECT_ROOT}
-- scripts_dir=${SCRIPTS_DIR}
+- project_root={PROJECT_ROOT}
+- scripts_dir={SKILL_ROOT}/scripts
 - 只返回严格的 reviewer schema JSON，不写任何文件。
 - 不评分、不口头总结。
 
-reviewer 只返回 JSON；主流程负责用 `Write` 把返回的 JSON 写入 `${PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。随后必须运行 review-pipeline；review-pipeline 会把同一路径覆盖为标准 review_result artifact（含 `blocking_count`），供 precommit gate 与后续提交命令使用。
+reviewer 只返回 JSON；主流程负责用 `Write` 把返回的 JSON 写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。随后必须运行 review-pipeline；review-pipeline 会把同一路径覆盖为标准 review_result artifact（含 `blocking_count`），供 precommit gate 与后续提交命令使用。
 
 调用后主流程必须记录 `SubagentRun` 汇总（仅供最终报告使用）：
 
@@ -151,10 +151,10 @@ reviewer 只返回 JSON；主流程负责用 `Write` 把返回的 JSON 写入 `$
 reviewer 跳过、失败、输出不完整、`--minimal` 写 no-review artifact、blocking issue、维度跳过或耗时异常，必须写入 `problems` / `auto_handled`，不得在最终报告中静默。
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" review-pipeline \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" review-pipeline \
   --chapter {chapter_num} \
-  --review-results "${PROJECT_ROOT}/.webnovel/tmp/review_results.json" \
-  --metrics-out "${PROJECT_ROOT}/.webnovel/tmp/review_metrics.json" \
+  --review-results "{PROJECT_ROOT}/.webnovel/tmp/review_results.json" \
+  --metrics-out "{PROJECT_ROOT}/.webnovel/tmp/review_metrics.json" \
   --report-file "审查报告/第{chapter_num}章审查报告.md" \
   --save-metrics
 ```
@@ -186,9 +186,9 @@ Use the Agent tool to run `webnovel-writer:data-agent`.
 Task:
 - chapter={chapter_num}
 - chapter_file=${CHAPTER_FILE}
-- project_root=${PROJECT_ROOT}
-- scripts_dir=${SCRIPTS_DIR}
-- output_dir=${PROJECT_ROOT}/.webnovel/tmp
+- project_root={PROJECT_ROOT}
+- scripts_dir={SKILL_ROOT}/scripts
+- output_dir={PROJECT_ROOT}/.webnovel/tmp
 - 按你自己的 schema（见 data-agent 输出格式段）生成 fulfillment_result.json、disambiguation_result.json、extraction_result.json 三份 artifact。
 - 你是这三份 artifact 的唯一写入者；不直接写 state/index/summaries/memory/vectors/projection。
 
@@ -216,16 +216,16 @@ artifact 字段 schema 由 data-agent 自身定义、runtime validator 校验；
 先跑 precommit gate：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" \
   write-gate --chapter {chapter_num} --stage precommit --format json
 ```
 
 precommit 通过后，运行提交前只读 `git diff` 变更面校验（写入所有权 sanity check，只读、不 stage、不提交）：
 
 ```bash
-if git -C "${PROJECT_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  git -C "${PROJECT_ROOT}" diff --name-status -- .
-  git -C "${PROJECT_ROOT}" diff --check -- .
+if git -C "{PROJECT_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git -C "{PROJECT_ROOT}" diff --name-status -- .
+  git -C "{PROJECT_ROOT}" diff --check -- .
 fi
 ```
 
@@ -234,12 +234,12 @@ fi
 校验通过后运行 chapter-commit：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" chapter-commit \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" chapter-commit \
   --chapter {chapter_num} \
-  --review-result "${PROJECT_ROOT}/.webnovel/tmp/review_results.json" \
-  --fulfillment-result "${PROJECT_ROOT}/.webnovel/tmp/fulfillment_result.json" \
-  --disambiguation-result "${PROJECT_ROOT}/.webnovel/tmp/disambiguation_result.json" \
-  --extraction-result "${PROJECT_ROOT}/.webnovel/tmp/extraction_result.json"
+  --review-result "{PROJECT_ROOT}/.webnovel/tmp/review_results.json" \
+  --fulfillment-result "{PROJECT_ROOT}/.webnovel/tmp/fulfillment_result.json" \
+  --disambiguation-result "{PROJECT_ROOT}/.webnovel/tmp/disambiguation_result.json" \
+  --extraction-result "{PROJECT_ROOT}/.webnovel/tmp/extraction_result.json"
 ```
 
 自动判定：blocking_count>0 或 missed_nodes 非空 或 pending 非空 → rejected，否则 accepted。
@@ -251,7 +251,7 @@ projection_status 五项（state/index/summary/memory/vector）全部 done 或 s
 chapter_status 由 projection writer 自动推进：accepted→committed，rejected→rejected。
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" \
   write-gate --chapter {chapter_num} --stage postcommit --format json
 ```
 
@@ -260,14 +260,14 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 commit 未生成→重跑 5.2。projection 失败→只补跑 projection，不回退 Step 1-4。
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" \
   projections retry --chapter {chapter_num} --format json
 ```
 
 ### Step 6：Git 备份
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" backup \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" backup \
   --chapter {chapter_num} \
   --chapter-title "{title}"
 ```
@@ -279,7 +279,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 开始写章前先用作者语言说明本次目标、主要阶段和是否需要守在旁边，不承诺固定耗时。过程提示只说当前在做什么和会产生什么，不直接输出原始 JSON、traceback 或长命令日志；技术详情写入 `.webnovel/logs/run_last.log`：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" run-log \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" run-log \
   --event write-start \
   --payload-json "{\"chapter\": {chapter_num}, \"mode\": \"{mode}\"}" \
   --format text
@@ -297,7 +297,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 重复执行同一章时，先读取可信断点：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" run-ledger write-resume \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" run-ledger write-resume \
   --chapter {chapter_num} \
   --mode "{mode}" \
   --format json
@@ -314,7 +314,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 收尾必须调用作者报告 helper，优先以 helper 输出组织最终回复：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" user-report \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" user-report \
   --stage write \
   --chapter {chapter_num} \
   --format text

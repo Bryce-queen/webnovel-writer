@@ -21,16 +21,16 @@ color: blue
 主入口（一次性拿全基础包）：
 
 ```bash
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" memory-contract load-context --chapter {NNNN}
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" memory-contract load-context --chapter {NNNN}
 ```
 
 按需补查（基础包不足时才调，已含的不重复查）：
 
 ```bash
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" memory-contract query-entity --id "{entity_id}"
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" memory-contract query-rules --domain "{domain}"
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" memory-contract get-timeline --from {N} --to {M}
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index get-reader-signals --limit 5 --last-n 20
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" memory-contract query-entity --id "{entity_id}"
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" memory-contract query-rules --domain "{domain}"
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" memory-contract get-timeline --from {N} --to {M}
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" index get-reader-signals --limit 5 --last-n 20
 ```
 
 load-context 已含（不要重复查）：`story_contracts`（MASTER/volume/chapter/review）、`recent_summaries`、`urgent_loops`、`active_rules`、`protagonist`、`memory_pack`（追读力）、`genre_profile_excerpt`。只有返回空 contracts 时才直接 read_text `.story-system/*.json`。

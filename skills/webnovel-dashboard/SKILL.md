@@ -32,7 +32,7 @@ export SCRIPTS_DIR="{SKILL_ROOT}/scripts"
 
 ```bash
 export PROJECT_ROOT="$(python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${WORKSPACE_ROOT}" where)"
-echo "项目路径: ${PROJECT_ROOT}"
+echo "项目路径: {PROJECT_ROOT}"
 ```
 
 `PROJECT_ROOT` 必须解析成功。
@@ -61,7 +61,7 @@ python -m pip install -r "${DASHBOARD_DIR}/requirements.txt"
 ### Step 4：启动 Dashboard
 
 ```bash
-python -m dashboard.server --project-root "${PROJECT_ROOT}"
+python -m dashboard.server --project-root "{PROJECT_ROOT}"
 ```
 
 不自动打开浏览器时加 `--no-browser`；自定义端口加 `--port 9000`。

@@ -69,19 +69,19 @@ export PROJECT_ROOT="$(python "{SKILL_ROOT}/scripts/webnovel.py" --project-root 
 
 ```bash
 # 角色历史状态：某实体在指定章节时的状态
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" knowledge query-entity-state --entity "{entity_id}" --at-chapter {N}
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" knowledge query-entity-state --entity "{entity_id}" --at-chapter {N}
 
 # 实体关系：某实体在指定章节时的所有关系
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" knowledge query-relationships --entity "{entity_id}" --at-chapter {N}
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" knowledge query-relationships --entity "{entity_id}" --at-chapter {N}
 
 # 世界规则
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" memory-contract query-rules --chapter {chapter_num}
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" memory-contract query-rules --chapter {chapter_num}
 
 # 伏笔 / open loop
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" memory-contract get-open-loops
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" memory-contract get-open-loops
 
 # 仅综合 / 复杂查询：需要时间线 + 长期记忆联合时才用
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" memory-contract load-context --chapter {chapter_num}
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" memory-contract load-context --chapter {chapter_num}
 ```
 
    静态设定（角色卡 / 力量体系 / 世界观 / 标签格式）直接用 `Grep` 定位行号再 `Read` 取片段，不经 memory-contract。

@@ -15,10 +15,10 @@ color: green
 ## 2. 工具
 
 ```bash
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index get-core-entities
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index recent-appearances --limit 20
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index get-aliases --entity "{entity_id}"
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index get-by-alias --alias "{alias}"
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" index get-core-entities
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" index recent-appearances --limit 20
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" index get-aliases --entity "{entity_id}"
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{project_root}" index get-by-alias --alias "{alias}"
 ```
 
 chapter-commit 由写章主流程运行，data-agent 不在此执行（见 §5 边界）。

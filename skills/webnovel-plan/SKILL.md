@@ -33,7 +33,7 @@ export SKILL_ROOT="{SKILL_ROOT}"
 export SCRIPTS_DIR="{SKILL_ROOT}/scripts"
 export PROJECT_ROOT="$(python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${WORKSPACE_ROOT}" where)"
 
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" placeholder-scan --format text
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" placeholder-scan --format text
 ```
 
 规划开始 / 结束都运行 `placeholder-scan`；plan 阶段发现占位先警告并补齐相关文件，进入写章前不得保留当前章相关实体的 `[待...]` / `暂名` / `{占位}`。
@@ -75,7 +75,7 @@ cat "$PROJECT_ROOT/.webnovel/state.json"
 cat "$PROJECT_ROOT/大纲/总纲.md"
 
 # 题材（来自 init 配置快照，后续 CSV 检索和裁决匹配依赖此值）；写后主链真源仍是 .story-system/
-GENRE="$(python -X utf8 -c "import json; s=json.load(open('${PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
+GENRE="$(python -X utf8 -c "import json; s=json.load(open('{PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
 ```
 
 按需读取设定集：`设定集/世界观.md`、`设定集/力量体系.md`、`设定集/主角卡.md`、`设定集/反派设计.md`、`.webnovel/idea_bank.json`。
@@ -89,9 +89,9 @@ for ch in $(seq $((START_CH - 5)) $((START_CH - 1))); do
 done
 
 # 核心角色当前状态 / 核心关系当前状态 / 活跃伏笔（跨卷未回收）
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" knowledge query-entity-state --entity "{protagonist_id}" --at-chapter {上一卷最后章}
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" knowledge query-relationships --entity "{protagonist_id}" --at-chapter {上一卷最后章}
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" memory-contract get-open-loops
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" knowledge query-entity-state --entity "{protagonist_id}" --at-chapter {上一卷最后章}
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" knowledge query-relationships --entity "{protagonist_id}" --at-chapter {上一卷最后章}
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" memory-contract get-open-loops
 ```
 
 ### Step 2：补齐设定基线
@@ -210,9 +210,9 @@ python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "$PROJECT_ROOT" update-
 genre 从 `state.json` 初始化配置快照读取；写前主链真源是 `.story-system/` 合同树。必须先从详细大纲解析真实 `CHAPTER_GOAL`，禁止传 `{章纲目标}` / `第N章章纲目标` 这类占位文本。
 
 ```bash
-GENRE="$(python -X utf8 -c "import json; s=json.load(open('${PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
+GENRE="$(python -X utf8 -c "import json; s=json.load(open('{PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
 
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" story-system "${CHAPTER_GOAL}" \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" story-system "${CHAPTER_GOAL}" \
   --genre "${GENRE}" --chapter {chapter_num} --persist --emit-runtime-contracts --format both
 ```
 
@@ -237,7 +237,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 规划开始前先说明本次会经历：检查总纲与设定 -> 生成节拍表 -> 生成时间线 -> 拆章纲 -> 写回新增设定 -> 刷新写作合同。过程提示用作者语言，不直接输出原始 JSON、traceback 或长命令日志；技术详情写入 `.webnovel/logs/run_last.log`：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" run-log \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" run-log \
   --event plan-progress \
   --payload-json "{\"stage\": \"plan\", \"volume\": {volume_id}}" \
   --format text
@@ -250,7 +250,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT
 不可恢复故障才在最终报告提示 `.webnovel/logs/run_last.log`；平时只保留日志，不打扰作者。收尾必须调用作者报告 helper：
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "${PROJECT_ROOT}" user-report \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" user-report \
   --stage plan \
   --volume {volume_id} \
   --format text
