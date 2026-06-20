@@ -39,6 +39,31 @@ python -X utf8 "{SKILL_ROOT}/scripts/reference_search.py" --skill write --table 
 
 触发条件：新角色→命名规则，战斗→场景写法，多角色对话→写作技法，情感描写→写作技法，高频桥段→场景写法。
 
+## 强制脚本调用清单（每次写章必须逐条执行，禁止跳过）
+
+> 执行本 skill 时，你必须在下表中逐条打勾。未完成当前步骤不得进入下一步。
+> 不读此表、凭记忆跳步执行是本 skill 已知最高频故障模式。
+
+| # | 步骤 | 命令 / Agent 调用 | 打勾 |
+|---|------|------------------|------|
+| 0 | 预检 | `webnovel.py preflight` + `placeholder-scan` | [ ] |
+| 0 | 刷新合同 | `story-system ...` + `write-gate --stage prewrite` | [ ] |
+| 1 | 生成任务书 | Agent: `context-agent` | [ ] |
+| 2 | 起草正文 | 主流程直接写 | [ ] |
+| 3a | 审查（Agent） | Agent: `reviewer` → 返回 JSON | [ ] |
+| 3b | 审查（落库）⭐ | `review-pipeline --save-metrics` | [ ] |
+| 4 | 润色 | 修复 issue + 排版 + Anti-AI 终检 | [ ] |
+| 5a | 提取事实 | Agent: `data-agent` → 三份 JSON | [ ] |
+| 5b | 提交前校验 | `write-gate --stage precommit` | [ ] |
+| 5c | Git diff | `git diff --name-status -- .` | [ ] |
+| 5d | 提交 | `chapter-commit ...` | [ ] |
+| 5e | 提交后校验 | `write-gate --stage postcommit` | [ ] |
+| 5f | 补投影 | `projections retry`（仅失败时） | [ ] |
+| 6 | 备份 | `backup --chapter ...` | [ ] |
+| R | 最终报告 | `user-report --stage write` | [ ] |
+
+> ⚠️ **3b review-pipeline** 是最高频漏调项。reviewer Agent 只输出 JSON，不写 index.db；必须由 review-pipeline 将 issue 清单转为 metrics 落库。
+
 ## 执行流程
 
 ### 准备：预检
