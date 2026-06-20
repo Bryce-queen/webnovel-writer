@@ -88,13 +88,41 @@ def deploy_one(skill_name: str) -> bool:
         meta = {
             "ownerId": "local",
             "slug": skill_name,
-            "version": "1.0.17",
-            "publishedAt": 1781568267265,
+            "version": "1.0.18",
+            "publishedAt": 1781943297775,
         }
         meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
+    # Symlink shared resources from parent webnovel-writer
+    _symlink_shared(target_dir, skill_name)
+
     print(f"  [OK] {skill_name} deployed to {target_dir}")
     return True
+
+
+def _symlink_shared(target_dir: Path, skill_name: str):
+    """Symlink parent-level shared resources that sub-skills need."""
+    PARENT = target_dir.parent / "webnovel-writer"
+
+    # agents: needed by webnovel-init, webnovel-write, webnovel-review
+    agents_needed = {"webnovel-init", "webnovel-write", "webnovel-review"}
+    if skill_name in agents_needed:
+        link = target_dir / "agents"
+        if not link.exists():
+            os.symlink((PARENT / "agents").resolve(), link, target_is_directory=True)
+
+    # parent references: needed by webnovel-plan, webnovel-query
+    refs_needed = {"webnovel-plan", "webnovel-query"}
+    if skill_name in refs_needed:
+        link = target_dir / "parent-references"
+        if not link.exists():
+            os.symlink((PARENT / "references").resolve(), link, target_is_directory=True)
+
+    # templates: needed by webnovel-plan
+    if skill_name == "webnovel-plan":
+        link = target_dir / "templates"
+        if not link.exists():
+            os.symlink((PARENT / "templates").resolve(), link, target_is_directory=True)
 
 
 def main():
