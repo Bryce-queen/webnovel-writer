@@ -16,7 +16,7 @@ argument-hint: "[章号或范围，如 5 或 1-5]"
 ## 红线
 
 - 必须通过 `Agent` 工具调用 `reviewer`，禁止主流程伪造结论或口头总结代替 subagent 输出。
-- reviewer 只返回严格 JSON；主流程负责把返回值写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`，随后由 `review-commit` 原子完成报告/指标/投影/日志。
+- reviewer 只返回严格 JSON；主流程负责用 `shell_executor` + `python -c` 直接覆写到 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`，随后由 `review-commit` 原子完成报告/指标/投影/日志。
 - 报告与 metrics 只由 `review-commit` 产出；主流程不伪造 `overall_score`。
 - 项目根不合法 / 缺 `.webnovel/state.json` / 缺待审正文 → 阻断。
 
@@ -69,7 +69,9 @@ Use the Agent tool to run `webnovel-writer:reviewer`.
 Prompt: chapter={chapter_num}; chapter_file={chapter_file}; project_root={PROJECT_ROOT}; scripts_dir={SKILL_ROOT}/scripts。严格输出 reviewer schema JSON，不评分，不口头总结。
 ```
 
-reviewer 返回后，主流程把严格 JSON 写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。`review-commit` 必须把同一路径覆盖为标准 review_result artifact（含 `blocking_count`）。
+reviewer 返回后，主流程用 `shell_executor` + `python -c` 把严格 JSON **直接覆写**到 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。`review-commit` 必须把同一路径覆盖为标准 review_result artifact（含 `blocking_count`）。
+
+> ⚠️ **禁止使用 `write_file`**：`write_file` 遇同名文件会自增后缀，使下游找不到。必须用 `shell_executor` + `python -c` 直接覆写。绝不允许先 `delete` 再 `write_file`。
 
 调用后主流程必须记录 `SubagentRun` 汇总（仅供最终报告使用）：
 

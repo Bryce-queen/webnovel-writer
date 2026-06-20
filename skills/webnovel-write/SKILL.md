@@ -54,12 +54,12 @@ python -X utf8 "{SKILL_ROOT}/scripts/reference_search.py" --skill write --table 
 | 4 | 润色 | 修复 issue + 排版 + Anti-AI 终检 | [ ] |
 | 5a | 提取事实 | Agent: `data-agent` → 三份 JSON | [ ] |
 | 5b | Git diff | `git diff --name-status -- .` | [ ] |
-| 5c | 原子提交 ⭐ | `chapter-commit ...`（内置 预检→评分→提交→投影→后检→日志，6 步打包执行） | [ ] |
+| 5c | 原子提交 ⭐ | `chapter-commit ...`（内置 预检→评分→提交→投影→后检→日志→备份→最终报告，7 步打包执行） | [ ] |
 | 5d | 补投影 | `projections retry`（仅失败时） | [ ] |
-| 6 | 备份 | `backup --chapter ...` | [ ] |
-| R | 最终报告 | `user-report --stage write` | [ ] |
+| 6 | 备份 | ✅ 已由 chapter-commit 覆盖 | [ ] |
+| R | 最终报告 | ✅ 已由 chapter-commit 覆盖 | [ ] |
 
-> ⚠️ **已修复**：v1.0.13 起 `chapter-commit` 为原子操作，内部依次执行 write-gate precommit → review-pipeline 评分落库 → 提交 → 投影 → write-gate postcommit → run-log，调用即全量执行，物理杜绝漏跑。
+> ⚠️ **已修复**：v1.0.15 起 `chapter-commit` 为原子操作，内部依次执行 write-gate precommit → review-pipeline 评分落库 → 提交 → 投影 → write-gate postcommit → run-log → backup → user-report，调用即全量执行，物理杜绝漏跑。Step 6 和 R 由 atomic chain 自动覆盖，无需单独调用。
 
 ## 执行流程
 
@@ -153,7 +153,13 @@ Task:
 - 只返回严格的 reviewer schema JSON，不写任何文件。
 - 不评分、不口头总结。
 
-reviewer 只返回 JSON；主流程负责用 `write_file` 把返回的 JSON 写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。随后必须运行 review-pipeline；review-pipeline 会把同一路径覆盖为标准 review_result artifact（含 `blocking_count`），供 precommit gate 与后续提交命令使用。
+reviewer 只返回 JSON；主流程负责用 `shell_executor` + `python -c` 把返回的 JSON **直接覆写**到 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。随后必须运行 review-pipeline；review-pipeline 会把同一路径覆盖为标准 review_result artifact（含 `blocking_count`），供 precommit gate 与后续提交命令使用。
+
+> ⚠️ **禁止使用 `write_file` 写入 temp 文件**：`write_file` 遇同名文件会自增后缀（如 `review_results_20260620.json`），导致下游按固定路径找不到 artifact。必须用 `shell_executor` + `python -c` 直接覆写，例如：
+> ```bash
+> python -c "import json; from pathlib import Path; p=Path('{PROJECT_ROOT}/.webnovel/tmp/review_results.json'); p.parent.mkdir(parents=True,exist_ok=True); p.write_text(json.dumps({...reviewer返回的JSON...},ensure_ascii=False,indent=2),encoding='utf-8')"
+> ```
+> 绝不允许先 `delete` 再 `write_file`。
 
 调用后主流程必须记录 `SubagentRun` 汇总（仅供最终报告使用）：
 
@@ -215,6 +221,7 @@ Task:
 - output_dir={PROJECT_ROOT}/.webnovel/tmp
 - 按你自己的 schema（见 data-agent 输出格式段）生成 fulfillment_result.json、disambiguation_result.json、extraction_result.json 三份 artifact。
 - 你是这三份 artifact 的唯一写入者；不直接写 state/index/summaries/memory/vectors/projection。
+- ⚠️ 必须用 `shell_executor` + `python -c` 写入 output_dir 下的 JSON 文件（直接覆写），禁止用 `write_file`（会自增后缀导致 chapter-commit 找不到文件）。禁止先 `delete` 再写入。
 
 artifact 字段 schema 由 data-agent 自身定义、runtime validator 校验；主流程只检查文件存在与 schema，不重写、不补写、不口头替代。
 
@@ -288,15 +295,9 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
   projections retry --chapter {chapter_num} --format json
 ```
 
-### Step 6：Git 备份
+### Step 6：Git 备份 ✅ 已由 chapter-commit 覆盖
 
-```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" backup \
-  --chapter {chapter_num} \
-  --chapter-title "{title}"
-```
-
-备份必须以解析后的 `PROJECT_ROOT` 为准，禁止从工作区父目录执行裸全量 Git add，避免把书项目仓库作为父仓库的嵌入仓库/submodule 加入。
+`chapter-commit` 已内置 `GitBackupManager.backup(chapter, title)`，无需单独调用。
 
 ## 作者友好过程提示与恢复契约
 
@@ -335,14 +336,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 
 卡住时必须说明卡点、已完成内容和恢复建议：例如“正文和审查报告已保留，保存本章故事事实失败；重新运行 `/webnovel-write {chapter_num}` 会从 data-agent 继续”。不可恢复故障才在最终报告提示 `.webnovel/logs/run_last.log`；平时只保留日志，不打扰作者。
 
-收尾必须调用作者报告 helper，优先以 helper 输出组织最终回复：
-
-```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" user-report \
-  --stage write \
-  --chapter {chapter_num} \
-  --format text
-```
+收尾报告已由 `chapter-commit` 自动生成（`build_user_report` → `format_user_report`），章节 payload 中包含 `_user_report` 字段。主流程直接读取该字段组织最终回复，无需单独调用 `user-report`。
 
 ## 充分性闸门
 
