@@ -211,16 +211,7 @@ python "{SKILL_ROOT}/scripts/webnovel.py" init \
 
 `大纲/总纲.md` 必须补齐：故事一句话、核心主线/暗线、创意约束（反套路、硬约束、主角缺陷、反派镜像）、反派分层、关键爽点里程碑（2-3 条）。
 
-### 4) 生成写前合同树（Story System 初始化）
-
-init 完成后立即生成 MASTER_SETTING，让后续 plan 有调性/禁忌参照。此处不传 `--chapter`（只生成 `MASTER_SETTING.json` 和 `anti_patterns.json`），也不传 `--emit-runtime-contracts`（还没有卷/章级数据）；plan 拆到具体章节时再生成 volume/chapter/review 合同。
-
-```bash
-GENRE="$(python -X utf8 -c "import json,os; root=os.environ['PROJECT_ROOT']; s=json.load(open(root + '/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
-
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" \
-  story-system "${GENRE}" --genre "${GENRE}" --persist --format json
-```
+> ⚠️ **已修复**：v1.0.16 起 `webnovel.py init` 内部自动生成 `.story-system/MASTER_SETTING.json` 和 `anti_patterns.json`，无需单独调用 `story-system`。后续 plan 拆到具体章节时再生成 volume/chapter/review 合同。
 
 ## 验证与交付
 

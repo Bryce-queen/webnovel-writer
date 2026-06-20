@@ -690,6 +690,26 @@ __pycache__/
     except Exception as e:
         print(f"Default project pointer update failed (non-fatal): {e}")
 
+    # ── 生成 Story System MASTER_SETTING（原子内置，物理杜绝跳过） ──
+    try:
+        from data_modules.story_system_engine import StorySystemEngine
+        from data_modules.story_contracts import persist_story_seed
+
+        # 使用书名作为 query，已解析的题材作为 genre
+        csv_dir = Path(__file__).resolve().parent.parent / "references" / "csv"
+        engine = StorySystemEngine(csv_dir=str(csv_dir))
+        contract = engine.build(
+            query=title,
+            genre=canonical_genre,
+        )
+        persist_story_seed(
+            project_root=project_path,
+            master_payload=contract["master_setting"],
+        )
+        print("Story System MASTER_SETTING generated.")
+    except Exception as e:
+        print(f"Story System MASTER_SETTING generation failed (non-fatal): {e}")
+
     print(f"\nProject initialized at: {project_path}")
     print("Key files:")
     print(" - .webnovel/state.json")

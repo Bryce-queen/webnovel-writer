@@ -16,8 +16,8 @@ argument-hint: "[章号或范围，如 5 或 1-5]"
 ## 红线
 
 - 必须通过 `Agent` 工具调用 `reviewer`，禁止主流程伪造结论或口头总结代替 subagent 输出。
-- reviewer 只返回严格 JSON；主流程负责把返回值写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`，随后由 `review-pipeline` 覆盖为标准 review_result artifact。
-- 报告与 metrics 只由 `review-pipeline --save-metrics` 产出；主流程不伪造 `overall_score`。
+- reviewer 只返回严格 JSON；主流程负责把返回值写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`，随后由 `review-commit` 原子完成报告/指标/投影/日志。
+- 报告与 metrics 只由 `review-commit` 产出；主流程不伪造 `overall_score`。
 - 项目根不合法 / 缺 `.webnovel/state.json` / 缺待审正文 → 阻断。
 
 ## 执行流程
@@ -49,7 +49,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 | always | `../../references/review-schema.md` |
 | 审查涉及爽点或钩子 | `../../references/shared/cool-points-guide.md` |
 | 审查涉及多线交织 | `../../references/shared/strand-weave-pattern.md` |
-| blocking issue 需用户裁决 (Step 8) | `../../references/review/blocking-override-guidelines.md` |
+| blocking issue 需用户裁决 | `../../references/review/blocking-override-guidelines.md` |
 
 ### Step 4：加载投影状态与待审正文
 
@@ -69,7 +69,7 @@ Use the Agent tool to run `webnovel-writer:reviewer`.
 Prompt: chapter={chapter_num}; chapter_file={chapter_file}; project_root={PROJECT_ROOT}; scripts_dir={SKILL_ROOT}/scripts。严格输出 reviewer schema JSON，不评分，不口头总结。
 ```
 
-reviewer 返回后，主流程把严格 JSON 写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。`review-pipeline` 必须把同一路径覆盖为标准 review_result artifact（含 `blocking_count`）。
+reviewer 返回后，主流程把严格 JSON 写入 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。`review-commit` 必须把同一路径覆盖为标准 review_result artifact（含 `blocking_count`）。
 
 调用后主流程必须记录 `SubagentRun` 汇总（仅供最终报告使用）：
 
@@ -88,65 +88,40 @@ reviewer 返回后，主流程把严格 JSON 写入 `{PROJECT_ROOT}/.webnovel/tm
 
 reviewer 跳过、失败、输出不完整、正文为空、维度跳过、blocking issue 或耗时异常，必须写入 `problems` / `auto_handled`，不得在最终报告中静默。
 
-### Step 6：生成报告并落库
+### Step 6：原子审查提交（review-commit）⭐
+
+单次调用自动执行：审查报告+指标落库 → 兼容投影写入 → 运行日志 → 最终报告。物理杜绝漏跑。
 
 ```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" review-pipeline \
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" review-commit \
   --chapter {chapter_num} \
   --review-results "{PROJECT_ROOT}/.webnovel/tmp/review_results.json" \
   --metrics-out "{PROJECT_ROOT}/.webnovel/tmp/review_metrics.json" \
-  --report-file "审查报告/第{chapter_num}章审查报告.md" \
-  --save-metrics
+  --report-file "审查报告/第{chapter_num}章审查报告.md"
 ```
 
-`review-pipeline --save-metrics` 同时完成报告生成、`review_metrics.json` 输出、`review_metrics` 表写入。阻断判断以 review_results 中的 `blocking=true` 为准。
+> ⚠️ **已修复**：v1.0.16 起 `review-commit` 为原子操作，内部依次执行 review-pipeline 报告/指标落库 → update-state 兼容投影 → run-log → user-report 最终报告，调用即全量执行。
 
-### Step 7：写入兼容审查记录
+### Step 7：处理阻断
 
-```bash
-python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" update-state -- --add-review "{chapter_num}-{chapter_num}" "审查报告/第{chapter_num}章审查报告.md"
-```
-
-兼容投影 / read model，不是写后事实真源。
-
-### Step 8：处理阻断
-
-存在任意 `blocking=true` 问题时，用 `AskUserQuestion` 让用户裁决：
-
-- 立即修复：输出返工清单，仅在用户明确授权下做最小修改。
-- 仅保存报告，稍后处理：保留报告与指标记录，结束流程。
+存在任意 `blocking=true` 问题时，用 `AskUserQuestion` 裁决：立即修复 / 仅保存报告稍后处理 / 放弃本次审查。
 
 ## 成功标准
 
 1. 已解析真实书项目根。
 2. 已通过 `reviewer` 输出结构化问题 JSON，落盘到 `.webnovel/tmp/review_results.json`。
-3. 审查报告已生成，`review_metrics` 已写入 `index.db`，`review_metrics.json` 已输出。
-4. 审查记录已写入 `.webnovel/state.json` 兼容投影。
-5. 存在阻断问题时，用户已明确选择处理策略。
+3. `review-commit` 已完成（报告/指标/兼容投影/日志/用户报告全部自动执行）。
+4. 存在阻断问题时，用户已明确选择处理策略。
 
 ## 作者友好过程提示与恢复契约
 
-审查开始前先说明本次会经历：定位待审正文 -> 刷新缺失合同 -> 写作检查 -> 生成报告和指标 -> 处理阻断裁决。过程提示用作者语言，不直接输出原始 JSON、traceback 或长命令日志；技术详情写入 `.webnovel/logs/run_last.log`：
+审查开始前先说明本次会经历：定位待审正文 -> 刷新缺失合同 -> 写作检查 -> 原子审查提交（报告/指标/投影/日志）。过程提示用作者语言，不直接输出原始 JSON、traceback 或长命令日志；技术详情写入 `.webnovel/logs/run_last.log`（`review-commit` 内部自动记录）。
 
-```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" run-log \
-  --event review-progress \
-  --payload-json "{\"stage\": \"review\", \"chapter\": {chapter_num}}" \
-  --format text
-```
+过程提示每次不超过两行，只说当前动作和影响。少打扰确认策略：无阻断时不询问；存在 blocking issue、缺待审正文、用户要求是否立即修改时才询问。
 
-过程提示每次不超过两行，只说当前动作和影响，例如“正在生成审查报告：会把阻断问题和最值得改的建议放到顶部”。少打扰确认策略：无阻断时不询问；存在 blocking issue、缺待审正文、用户要求是否立即修改时才询问。
+需要用户裁决时使用有限选项，并说明影响。卡住时必须说明卡点、已完成内容和恢复建议，例如"reviewer 结果已保存，review-commit 失败；重新运行 `/webnovel-review {chapter_num}` 会从原子提交继续"。
 
-需要用户裁决时使用有限选项，并说明影响；例如立即修复 / 仅保存报告稍后处理 / 放弃本次审查。卡住时必须说明卡点、已完成内容和恢复建议，例如“reviewer 结果已保存，metrics 落库失败；重新运行 `/webnovel-review {chapter_num}` 会从报告落库继续”。
-
-不可恢复故障才在最终报告提示 `.webnovel/logs/run_last.log`；平时只保留日志，不打扰作者。收尾必须调用作者报告 helper：
-
-```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" user-report \
-  --stage review \
-  --chapter {chapter_num} \
-  --format text
-```
+不可恢复故障才在最终报告提示 `.webnovel/logs/run_last.log`；平时只保留日志，不打扰作者。`review-commit` 已内置 `user-report`，无需单独调用。
 
 ## 作者友好最终报告契约
 
@@ -168,23 +143,18 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 ```
 
 必须汇报：
-- 审查报告文件。
-- `.webnovel/tmp/review_results.json`。
-- `.webnovel/tmp/review_metrics.json`。
-- `review_metrics` 是否落库。
-- 阻断问题数量。
-- 用户裁决状态。
+- 审查报告文件、`.webnovel/tmp/review_results.json`、`.webnovel/tmp/review_metrics.json`。
+- 阻断问题数量、用户裁决状态。
 - 如果无阻断，明确可以继续写作。
 
 状态规则：
-- 有 blocking 问题且用户未选择处理策略时，最终状态为“需要你处理”。
-- 只保存报告、稍后处理时，最终状态为“需要你处理”或“部分完成”。
-- reviewer 跳过、失败或输出不完整时，最终状态不得写“已完成”。
+- 有 blocking 问题且用户未选择处理策略时，最终状态为"需要你处理"。
+- reviewer 跳过、失败或输出不完整时，最终状态不得写"已完成"。
 
 异常分类：
-- 已自动处理：重复生成报告、覆盖本次旧审查中间文件、成功补写 metrics。
+- 已自动处理：review-commit 自动重试报告/指标/投影落库。
 - 建议确认：非阻断但高收益修改建议、命名或设定细节建议看一眼。
-- 必须处理：blocking issue、缺待审正文、reviewer 输出不完整、metrics 落库失败。
+- 必须处理：blocking issue、缺待审正文、reviewer 输出不完整、review-commit 失败。
 
 下一步建议必须使用任务化语言 + 可复制命令，例如：
 

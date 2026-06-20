@@ -165,58 +165,21 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 
 硬规则：若发现与总纲或既有设定冲突，标记 `BLOCKER` 并停止后续更新。
 
-### Step 9：验证、保存并更新状态
+### Step 9：原子规划提交（plan-commit）⭐
 
-必须通过：节拍表 / 时间线表 / 详细大纲均存在且非空；每章时间字段齐全；时间线单调递增；倒计时推进正确；新设定已回写；`BLOCKER=0`；有节点时相邻章节 `CEN -> CBN` 无明显逻辑冲突且每章`必须覆盖节点`不超过 4 个。
-
-验证全部通过后，生成显式结构化写回文件 `大纲/第{volume_id}卷-总纲写回.json`（只写规划中显式列出的伏笔 / 开放环，禁止从卷纲自由文本推断）：
-
-```json
-{
-  "next_volume_anchor": {
-    "volume": 2,
-    "volume_name": "下一卷卷名",
-    "core_conflict": "下一卷核心冲突",
-    "volume_end_climax": "下一卷卷末高潮"
-  },
-  "foreshadow_writeback": [
-    {"content": "本卷规划明确新增的伏笔", "buried_chapter": "第10章", "payoff_chapter": "", "level": "卷级"}
-  ],
-  "open_loop_writeback": [
-    {"content": "本卷结束后仍持续开放的问题", "buried_chapter": "", "payoff_chapter": "", "level": "持续开放环"}
-  ]
-}
-```
-
-执行最小总纲写回（只更新 `大纲/总纲.md` 的 V+1 卷名 / 核心冲突 / 卷末高潮与伏笔表，不生成下一卷详细大纲 / 节拍表 / 时间线 / 章纲）：
-
-```bash
-python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "$PROJECT_ROOT" master-outline-sync \
-  --volume {volume_id} \
-  --writeback-file "大纲/第{volume_id}卷-总纲写回.json" \
-  --format text
-```
-
-更新状态：
-
-```bash
-python "{SKILL_ROOT}/scripts/webnovel.py" --project-root "$PROJECT_ROOT" update-state -- \
-  --volume-planned {volume_id} \
-  --chapters-range "{start}-{end}"
-```
-
-### Step 10：刷新 Story System 写作合同（本次规划已落到具体章节时必须执行）
-
-genre 从 `state.json` 初始化配置快照读取；写前主链真源是 `.story-system/` 合同树。必须先从详细大纲解析真实 `CHAPTER_GOAL`，禁止传 `{章纲目标}` / `第N章章纲目标` 这类占位文本。
+单次调用自动执行：占位扫描 → 总纲写回 → 逐章刷新 Story System 合同 → 更新投影状态 → 运行日志 → 最终报告。物理杜绝漏跑。
 
 ```bash
 GENRE="$(python -X utf8 -c "import json; s=json.load(open('{PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
 
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" story-system "${CHAPTER_GOAL}" \
-  --genre "${GENRE}" --chapter {chapter_num} --persist --emit-runtime-contracts --format both
+python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" plan-commit \
+  --volume {volume_id} \
+  --chapters-range "{start}-{end}" \
+  --writeback-file "大纲/第{volume_id}卷-总纲写回.json" \
+  --genre "${GENRE}"
 ```
 
-生成后必须把 `.story-system/MASTER_SETTING.json`、`.story-system/volumes/`、`.story-system/chapters/`、`.story-system/reviews/` 视为后续写作主链输入。进入写章前不得保留当前章相关实体的 `[待...]` / `暂名` / `{占位}`。
+> ⚠️ **已修复**：v1.0.16 起 `plan-commit` 为原子操作，内部依次执行 placeholder-scan → master-outline-sync → 逐章 story-system --emit-runtime-contracts → update-state → run-log → user-report，调用即全量执行。合约刷新失败会打印警告并计数。
 
 ## 硬失败条件
 
@@ -234,28 +197,13 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 
 ## 作者友好过程提示与恢复契约
 
-规划开始前先说明本次会经历：检查总纲与设定 -> 生成节拍表 -> 生成时间线 -> 拆章纲 -> 写回新增设定 -> 刷新写作合同。过程提示用作者语言，不直接输出原始 JSON、traceback 或长命令日志；技术详情写入 `.webnovel/logs/run_last.log`：
+规划开始前先说明本次会经历：检查总纲与设定 -> 生成节拍表 -> 生成时间线 -> 拆章纲 -> 写回新增设定 -> 原子规划提交（合同/投影/日志）。过程提示用作者语言，不直接输出原始 JSON、traceback 或长命令日志；技术详情写入 `.webnovel/logs/run_last.log`（`plan-commit` 内部自动记录）。
 
-```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" run-log \
-  --event plan-progress \
-  --payload-json "{\"stage\": \"plan\", \"volume\": {volume_id}}" \
-  --format text
-```
+过程提示每次不超过两行，只说当前动作和影响，例如"正在拆本卷章纲：会把每章目标、时间锚点和禁区写清楚"。少打扰确认策略：默认继续推进；只有总纲 / 设定冲突、时间线回跳、卷末钩子取舍、需要覆盖已有规划时才询问。
 
-过程提示每次不超过两行，只说当前动作和影响，例如“正在拆本卷章纲：会把每章目标、时间锚点和禁区写清楚”。少打扰确认策略：默认继续推进；只有总纲 / 设定冲突、时间线回跳、卷末钩子取舍、需要覆盖已有规划时才询问。
+需要用户裁决时使用有限选项，并说明影响。卡住时必须说明卡点、已完成内容和恢复建议，例如"节拍表和时间线已保留，plan-commit 失败；重新运行 `/webnovel-plan {volume_id}` 会从原子提交继续"。
 
-需要用户裁决时使用有限选项，并说明影响；例如沿用总纲 / 修改设定 / 暂停规划。卡住时必须说明卡点、已完成内容和恢复建议，例如“节拍表和时间线已保留，第 21-30 章拆分失败；重新运行 `/webnovel-plan {volume_id}` 会只重做失败批次”。
-
-不可恢复故障才在最终报告提示 `.webnovel/logs/run_last.log`；平时只保留日志，不打扰作者。收尾必须调用作者报告 helper：
-
-```bash
-python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" user-report \
-  --stage plan \
-  --volume {volume_id} \
-  --format text
-```
-
+不可恢复故障才在最终报告提示 `.webnovel/logs/run_last.log`；平时只保留日志，不打扰作者。`plan-commit` 已内置 `user-report`，无需单独调用。
 ## 作者友好最终报告契约
 
 最终回复必须面向作者，不输出原始 JSON、traceback 或长命令日志。使用固定三段式，并以一句总状态开头：
@@ -276,18 +224,15 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 ```
 
 必须汇报：
-- `大纲/第{volume_id}卷-节拍表.md`。
-- `大纲/第{volume_id}卷-时间线.md`。
-- `大纲/第{volume_id}卷-详细大纲.md`。
+- `大纲/第{volume_id}卷-节拍表.md`、`大纲/第{volume_id}卷-时间线.md`、`大纲/第{volume_id}卷-详细大纲.md`。
 - 新增设定写回了哪些设定集文件。
-- `大纲/第{volume_id}卷-总纲写回.json`。
-- `master-outline-sync`、`update-state`、Story System 合同刷新是否完成。
-- 占位符、时间线、节点承接是否通过。
+- `plan-commit` 完成情况（占位/总纲写回/合同刷新/投影更新/日志）。
+- 占位符、时间线、节点承接是否通过，合同刷新成功/失败计数。
 
 异常分类：
-- 已自动处理：只重做失败批次、补齐非阻断占位、重跑合同刷新。
+- 已自动处理：只重做失败批次、补齐非阻断占位、plan-commit 自动重试失败步骤。
 - 建议确认：新增角色名、势力名、卷末钩子需要作者看一眼。
-- 必须处理：总纲 / 设定冲突、时间线回跳、`BLOCKER` 未裁决、当前章相关占位残留。
+- 必须处理：总纲 / 设定冲突、时间线回跳、`BLOCKER` 未裁决、当前章相关占位残留、plan-commit 合同刷新计数异常。
 
 下一步建议必须使用任务化语言 + 可复制命令，例如：
 
