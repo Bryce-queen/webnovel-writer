@@ -34,6 +34,23 @@ argument-hint: "[章号或范围，如 5 或 1-5]"
 
 > 调用规则：Step 5 的三个 jwynia 诊断必须在 `dispatch_task("file-agent")` 之前完成；file-agent 的审查 prompt 中需包含 jwynia 诊断摘要。
 
+## 流水线文件依赖链
+
+> 每一步的执行必要条件是：上一步的产出文件必须存在。以文件为基准，缺上一步落盘文件直接拒绝执行当前步骤。
+
+| 步骤 | 上一步产出物（本步入口硬校验） | 本步产出物 | 校验方 |
+|------|---------------------------|-----------|--------|
+| Step 1 | — | 确认 `PROJECT_ROOT` 含 `.webnovel/state.json` | `webnovel.py where` |
+| Step 2 | Step 1: `PROJECT_ROOT` 已解析 | runtime contracts | —（条件触发） |
+| Step 3 | —（知识加载） | 无文件 | — |
+| Step 4 | `.webnovel/state.json` | 确认章节正文存在 | Agent（读文件 / 无则阻断） |
+| Step 5 | 章节正文文件 | `prose_check.txt`, `prose_critique.txt`, `story_sense.txt` | Agent（按 step 写盘） |
+| Step 6 | Step 5 三份诊断产物 | `review_results.json` | **Agent 前置检查诊断产物** |
+| Step 7 | Step 5 诊断 + Step 6 `review_results.json` | 报告/指标/投影/日志 | `_validate_review_results` + `_validate_diagnostics`（脚本硬阻断） |
+| Step 8 | Step 7 审查完成 | 用户裁决 | — |
+
+> **硬阻断点**：Step 7（review-commit / review-pipeline）在脚本层强制校验 `review_results.json` 存在+非空 + 三份诊断产物存在+非空。缺任一直接 `sys.exit`，不可能绕过。
+
 ## 执行流程
 
 ### Step 1：解析项目根
@@ -47,6 +64,8 @@ export PROJECT_ROOT="$(python "{SKILL_ROOT}/scripts/webnovel.py" --project-root 
 ### Step 2：目标章缺合同时刷新 runtime 合同
 
 目标章缺 runtime 合同时，先用详细大纲的真实本章目标刷新（`CHAPTER_GOAL` 禁止 `{章纲目标}` / `第N章章纲目标` 占位文本）：
+
+**前置硬校验**：确认 `.webnovel/state.json` 可读。若非 `CHAPTER_GOAL` 占位符但 state.json 损坏或不存在 → 阻断。
 
 ```bash
 GENRE="$(python -X utf8 -c "import json; s=json.load(open('{PROJECT_ROOT}/.webnovel/state.json',encoding='utf-8')); pi=s.get('project_info',{}); print(pi.get('genre') or s.get('project',{}).get('genre',''))")"
@@ -67,19 +86,82 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 
 ### Step 4：加载投影状态与待审正文
 
+**前置硬校验**：先用 `shell_executor` 逐项确认：
+
+```bash
+# 1. 状态文件存在
+test -f "{PROJECT_ROOT}/.webnovel/state.json" || echo "阻断：state.json 不存在"
+
+# 2. chapter_file 文件存在且非空
+test -s "{chapter_file}" || echo "阻断：章节正文文件不存在或为空"
+```
+
+任一失败 → 阻断，输出明确原因后终止。
+
+通过后读取状态文件确认当前章节号与对应正文：
+
 ```bash
 cat "{PROJECT_ROOT}/.webnovel/state.json"
 ```
 
 确认当前章节号与对应正文文件；缺正文或缺兼容状态文件立即阻断。
 
-### Step 5：调用统一审查（file-agent）
+### Step 5：prose-check 前置检测（新增）
+
+**前置硬校验**：确认章节正文文件存在且非空（若 Step 4 已通过则自动满足，但 Step 5 独立运行时必须自查）：
+
+```bash
+test -s "{chapter_file}" || echo "阻断：章节正文文件不存在或为空（请先完成 Step 4）"
+```
+
+通过后执行以下检测。
+
+在审查前运行项目级 prose 检测脚本，扫描已知的 AI 写作反模式。当前覆盖：
+
+| 检测项 | 脚本 | 阈值 | 超阈值处理 |
+|--------|------|------|-----------|
+| 「不是A，是B」句式密度 | `references/prose_check_not_a_but_b.py` | 6 处/千字 | 告警后纳入审查 issue，建议作者先修复再审查 |
+
+```bash
+python -X utf8 "{SKILL_ROOT}/references/prose_check_not_a_but_b.py" "{chapter_file}" --threshold 6
+```
+
+- 退出码 0：密度正常，继续审查。
+- 退出码 1：密度超标，将检测输出追加到审查 prompt 的补充输入中（不作为独立 issue，而是提醒 reviewer 在 ai_flavor 维度中关注此模式）。
+- 脚本不存在则跳过（非阻断）。
+
+> 新增检测项时：在 `references/` 下添加独立脚本 → 在本表中追加一行 → 保持阈值可配置。
+
+**▸ prose-check 产物写盘**：prose-check 的输出必须写入 `{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}/prose_check.txt`。
+
+**▸ jwynia 诊断产物写盘**（以下三个必做，缺一则 review-commit 阻断）：
+
+| 诊断 | use_skill | 输出文件 | 条件 |
+|------|-----------|----------|------|
+| prose-critique | `use_skill("prose-critique", ...)` | `{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}/prose_critique.txt` | 必做 |
+| story-sense | `use_skill("story-sense", ...)` | `{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}/story_sense.txt` | 必做 |
+| worldbuilding | `use_skill("worldbuilding", ...)` | `{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}/worldbuilding.txt` | 条件：章节内容涉及新设定时触发 |
+
+诊断输出必须用 `shell_executor` + `python -c` 直接覆写到目标文件（不得用 `write_file`，理由同 Step 6）。
+
+### Step 6：调用统一审查（file-agent）
+
+**前置硬校验（Agent 执行，不可跳过）**：调用 `dispatch_task` 之前，先用 `shell_executor` 确认以下三个文件存在且非空：
+
+```bash
+ls -l "{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}"/{prose_check.txt,prose_critique.txt,story_sense.txt}
+```
+
+任一缺失或为空 → **阻断**，拒绝派发 file-agent，提示用户先执行 Step 5。
+
+通过后再执行以下步骤。
 
 必须通过 `dispatch_task` 派发给 `file-agent`。审查方法与维度细则见已加载的参考文件（core-constraints、review-schema）。
 
 调用前准备：
 1. 确保 Step 3 中已阅读 `../../references/shared/core-constraints.md` 和 `../../references/review-schema.md`，并记录 memory_ids。
 2. 确认本章正文文件路径 `chapter_file`。
+3. 若 Step 5 prose-check 超阈值，将检测输出作为审查 prompt 的补充输入。
 
 派发 `dispatch_task(agent_name="file-agent", task="<overall_goal>用户原始需求</overall_goal><current_task>读取正文文件 {chapter_file}，对照上下文中的审查 schema 和核心约束进行全面审查。严格输出 reviewer schema JSON，不评分，不口头总结。</current_task>", memory_ids=[...])`
 
@@ -104,7 +186,7 @@ file-agent 返回后，主流程用 `shell_executor` + `python -c` 把严格 JSO
 
 file-agent 跳过、失败、输出不完整、正文为空、维度跳过、blocking issue 或耗时异常，必须写入 `problems` / `auto_handled`，不得在最终报告中静默。
 
-### Step 6：原子审查提交（review-commit）⭐
+### Step 7：原子审查提交（review-commit）⭐
 
 单次调用自动执行：审查报告+指标落库 → 兼容投影写入 → 运行日志 → 最终报告。物理杜绝漏跑。
 
@@ -113,12 +195,16 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
   --chapter {chapter_num} \
   --review-results "{PROJECT_ROOT}/.webnovel/tmp/review_results.json" \
   --metrics-out "{PROJECT_ROOT}/.webnovel/tmp/review_metrics.json" \
-  --report-file "审查报告/第{chapter_num}章审查报告.md"
+  --report-file "审查报告/第{chapter_num}章审查报告.md" \
 ```
 
-> ⚠️ **已修复**：v1.0.16 起 `review-commit` 为原子操作，内部依次执行 review-pipeline 报告/指标落库 → update-state 兼容投影 → run-log → user-report 最终报告，调用即全量执行。
+> ⚠️ **默认强制校验**：`review-commit` 和 `review-pipeline` 会自动执行两道校验：
+> 1. 检查 `--review-results` 指向的审查结果 JSON 存在且非空（缺则阻断：Step 6 未完成）
+> 2. 检查 `{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}/` 下 `prose_check.txt`、`prose_critique.txt`、`story_sense.txt` 三个必需产物存在且非空（缺则阻断：Step 5 未完成）
+>
+> 正常情况下无需任何额外参数即可生效。仅在批处理重算等非审查场景可传 `--skip-diagnostics-check` 豁免（同时跳过两道校验）。
 
-### Step 7：处理阻断
+### Step 8：处理阻断
 
 存在任意 `blocking=true` 问题时，用 `AskUserQuestion` 裁决：立即修复 / 仅保存报告稍后处理 / 放弃本次审查。
 

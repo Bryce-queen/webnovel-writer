@@ -77,6 +77,25 @@ python -X utf8 "/Users/aloha/Library/Application Support/com.tencent.mac.marvis/
 
 > 调用规则：Step 触发时主流程必须先 `use_skill` 获取诊断，再将结果纳入后续生成；绝不可跳过诊断直接产出。
 
+## 流水线文件依赖链
+
+> 每一步的执行必要条件是：上一步的产出文件必须存在。以文件为基准，缺上一步落盘文件直接拒绝执行当前步骤。
+
+| 步骤 | 入口硬校验（上一步产出物） | 本步产出物 | 校验方 |
+|------|--------------------------|-----------|--------|
+| Step 1 | — | 确认 `state.json`、`总纲.md`、设定集可读 | Agent |
+| Step 2 | Step 1 数据已加载 | 更新后设定集文件 | — |
+| Step 3 | —（确认范围） | 卷名/范围/核心冲突 | — |
+| Step 4 | 总纲 + 设定集数据 | `大纲/第{volume}卷-节拍表.md` | Agent（生成后校验） |
+| **Step 5** | **`大纲/第{volume}卷-节拍表.md`**（Step 4 产出） | `大纲/第{volume}卷-时间线.md` | **Agent: `test -f` 节拍表** |
+| **Step 6** | **节拍表 + 时间线**（Step 4+5 产出） | 卷纲骨架（内容输入 Step 7） | **Agent: `test -f` 两份文件** |
+| **Step 7** | **节拍表 + 时间线 + 卷纲骨架**（Step 4-6 产出） | `大纲/第{volume}卷-详细大纲.md` | **Agent: `test -f` 节拍表+时间线** |
+| Step 8 | 详细大纲（Step 7 产出） | 更新后设定集文件 | — |
+| Step 9 | Steps 4-8 全部产出 | plan-commit（原子操作，内置 placeholder-scan + 合同刷新） | `plan-commit` 脚本 + 硬失败条件 |
+
+> **Agent 阻断点（粗体行）**：Step 5/6/7 执行前，Agent 必须 `test -f` 校验上一步产出文件存在。不通过则拒绝执行，提示用户先完成上一步。
+> **脚本阻断点**：`plan-commit`（Step 9）内置 placeholder-scan 和合同刷新，产出文件缺失会触发硬失败条件。
+
 ## 执行流程
 
 ### Step 1：加载项目数据并确认前置条件
@@ -131,6 +150,14 @@ python -X utf8 "/Users/aloha/Library/Application Support/com.tencent.mac.marvis/
 
 ### Step 5：生成卷时间线表
 
+**前置硬校验**：
+
+```bash
+test -f "{PROJECT_ROOT}/大纲/第{volume_id}卷-节拍表.md" || echo "阻断：节拍表不存在（请先完成 Step 4）"
+```
+
+不通过 → 阻断。
+
 加载模板 `$/Users/aloha/Library/Application Support/com.tencent.mac.marvis/MarvisData/User/671DE13D0D82CB9B9E912E7E3C023532/skills/custom/webnovel-writer/../../templates/output/大纲-卷时间线.md`。
 
 硬要求：必须明确时间体系与本卷时间跨度；有倒计时事件时列出并标记 D-N。
@@ -138,6 +165,15 @@ python -X utf8 "/Users/aloha/Library/Application Support/com.tencent.mac.marvis/
 输出文件：`大纲/第{volume_id}卷-时间线.md`
 
 ### Step 6：生成卷纲骨架
+
+**前置硬校验**：
+
+```bash
+test -f "{PROJECT_ROOT}/大纲/第{volume_id}卷-节拍表.md" || echo "阻断：节拍表不存在（请先完成 Step 4）"
+test -f "{PROJECT_ROOT}/大纲/第{volume_id}卷-时间线.md" || echo "阻断：时间线不存在（请先完成 Step 5）"
+```
+
+任一不通过 → 阻断。
 
 必读 `$/Users/aloha/Library/Application Support/com.tencent.mac.marvis/MarvisData/User/671DE13D0D82CB9B9E912E7E3C023532/skills/custom/webnovel-writer/../../references/genre-profiles.md` 与 `$/Users/aloha/Library/Application Support/com.tencent.mac.marvis/MarvisData/User/671DE13D0D82CB9B9E912E7E3C023532/skills/custom/webnovel-writer/../../references/shared/strand-weave-pattern.md`；按需读取爽点 / 冲突 / 节奏 reference（见读取策略表）。
 
@@ -150,6 +186,15 @@ python -X utf8 "/Users/aloha/Library/Application Support/com.tencent.mac.marvis/
 - 主角能力 / 境界必须承接，不回退也不跳级（除非有剧情解释）。
 
 ### Step 7：批量生成章纲
+
+**前置硬校验**：
+
+```bash
+test -f "{PROJECT_ROOT}/大纲/第{volume_id}卷-节拍表.md" || echo "阻断：节拍表不存在（请先完成 Step 4）"
+test -f "{PROJECT_ROOT}/大纲/第{volume_id}卷-时间线.md" || echo "阻断：时间线不存在（请先完成 Step 5）"
+```
+
+任一不通过 → 阻断。
 
 批次规则：默认 `10章/批`；复杂题材或多线并进降到 `8章/批`；简单升级流放宽到 `12章/批`；不建议单批超过 `12章`。
 

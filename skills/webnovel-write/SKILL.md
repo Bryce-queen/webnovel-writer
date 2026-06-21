@@ -74,6 +74,25 @@ python -X utf8 "{SKILL_ROOT}/scripts/reference_search.py" --skill write --table 
 
 > 调用规则：每个 jwynia 调用必须先于相应润色子步骤执行；诊断结果作为润色的输入清单；`--minimal` 模式下跳过所有 jwynia 诊断。
 
+## 流水线文件依赖链
+
+> 每一步的执行必要条件是：上一步的产出文件必须存在。以文件为基准，缺上一步落盘文件直接拒绝执行当前步骤。
+
+| 步骤 | 入口硬校验（上一步产出物） | 本步产出物 | 校验方 |
+|------|--------------------------|-----------|--------|
+| 准备:预检 | — | `PROJECT_ROOT` 解析 | `webnovel.py preflight` |
+| 准备:刷新合同 | `.webnovel/state.json` | runtime contracts + `MASTER_SETTING.json`/`volume_NNN.json`/`chapter_NNN.review.json`（必备，缺则阻断） | 脚本内校验 |
+| Step 1 | 合同文件（准备产出） | 写作任务书 | Agent |
+| Step 2 | 写作任务书（Step 1 产出） | 章节正文 `CHAPTER_FILE` | Agent |
+| **Step 3** | **章节正文** `CHAPTER_FILE`（Step 2 产出） | `review_results.json` + `review_metrics.json` + 审查报告 | **Agent: `test -s CHAPTER_FILE`** |
+| Step 4 | 章正文 + `review_results.json`（Step 3 产出） | 润色后章正文 | — |
+| **Step 5.1** | **`review_results.json` + `CHAPTER_FILE`**（Step 3+2 产出） | `fulfillment_result.json` / `disambiguation_result.json` / `extraction_result.json` | **Agent: `test -s` 两份文件** |
+| Step 5.2 | Step 3+5.1 全部产出 | chapter-commit（原子操作，内含 write-gate precommit 门控） | `chapter-commit` 脚本 |
+| Step 5.3 | Step 5.2 提交成功 | 投影写入 | `write-gate --stage postcommit` |
+
+> **Agent 阻断点（粗体行）**：Step 3 和 Step 5.1 在派发 file-agent 前，Agent 必须执行 `test -s` 校验上一步落盘文件存在且非空。不通过则拒绝派发，提示用户先完成上一步。
+> **脚本阻断点**：`review-pipeline`（Step 3 内）已内置 `_validate_review_results` + `_validate_diagnostics` 两道硬校验。`chapter-commit` 内置 write-gate precommit 门控。
+
 ## 执行流程
 
 ### 准备：预检
@@ -152,6 +171,14 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 
 ### Step 3：审查
 
+**前置硬校验（Agent 执行，不可跳过）**：调用 `dispatch_task` 之前，先用 `shell_executor` 确认章节正文存在且非空：
+
+```bash
+test -s "{CHAPTER_FILE}" || echo "阻断：章节正文文件不存在或为空（请先完成 Step 2 起草）"
+```
+
+不通过 → **阻断**，拒绝派发 file-agent。
+
 必须使用 `dispatch_task` 派发给 `file-agent`，不得由主流程伪造审查 JSON。
 
 调用前准备：
@@ -218,6 +245,15 @@ python -X utf8 -c "import json,os; from pathlib import Path; root=Path(os.enviro
 ### Step 5：提交
 
 #### 5.1 file-agent 提取事实
+
+**前置硬校验（Agent 执行，不可跳过）**：调用 `dispatch_task` 之前，先用 `shell_executor` 确认审查结果和正文存在：
+
+```bash
+test -s "{PROJECT_ROOT}/.webnovel/tmp/review_results.json" || echo "阻断：review_results.json 不存在或为空（请先完成 Step 3 审查）"
+test -s "{CHAPTER_FILE}" || echo "阻断：章节正文文件不存在或为空（请先完成 Step 2 起草）"
+```
+
+任一不通过 → **阻断**，拒绝派发 file-agent。
 
 必须使用 `dispatch_task` 派发给 `file-agent`，产出 fulfillment_result / disambiguation_result / extraction_result 三份 JSON，并复用 Step 3 的 review_results。
 
