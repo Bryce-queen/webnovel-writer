@@ -1,8 +1,6 @@
 # 更新日志
 
-## v6.2.9 - 废弃 Sub-Agent 独立定义，迁移至 dispatch_task("file-agent")
-
-发版范围：`v6.2.8..v6.2.9`。
+## v1.0.19 - 废弃 Sub-Agent 独立定义，迁移至 dispatch_task("file-agent")
 
 ### 给作者看的变化
 
@@ -26,13 +24,13 @@
 - `find . -name 'context-agent.md' -o -name 'reviewer.md' -o -name 'data-agent.md' -o -name 'deconstruction-agent.md'` 无结果。
 - `grep -rn 'agents/' SKILL.md README.md deploy_to_market.py` 无匹配。
 
-## v6.2.8 - 补回 scripts/ 核心代码目录
+## v1.0.18 - 补回 scripts/ 核心代码目录
 
-发版范围：`v6.2.7..v6.2.8`。
+发版范围：`v1.0.17..v1.0.18`。
 
 ### 给作者看的变化
 
-- 修复 v6.2.7 zip 包缺失 scripts/ 核心代码目录的问题，恢复全部 Python 代码库及 Marvis 适配。
+- 修复 v1.0.17 zip 包缺失 scripts/ 核心代码目录的问题，恢复全部 Python 代码库及 Marvis 适配。
 
 ### 是否需要改旧项目
 
@@ -48,9 +46,9 @@
 - scripts/project_locator.py 包含 MARVIS_PROJECT_DIR / MARVIS_HOME / CURRENT_PROJECT_POINTER_MARVIS。
 - scripts/data_modules/config.py 包含 MARVIS_HOME / ~/.marvis 兜底。
 
-## v6.2.7 - 补回 RAG 降级提示表
+## v1.0.17 - 补回 RAG 降级提示表
 
-发版范围：`v6.2.6..v6.2.7`。
+发版范围：`v1.0.16..v1.0.17`。
 
 ### 给作者看的变化
 
@@ -62,24 +60,24 @@
 
 ### 给维护者
 
-- 从 v6.2.0 已安装版本恢复 SKILL.md 末尾的 RAG 降级提示强制输出表。
+- 从 v1.0.11 已安装版本恢复 SKILL.md 末尾的 RAG 降级提示强制输出表。
 
 ### 验证
 
 - SKILL.md 包含 `degraded_mode_reason: "missing_embed_api_key"` 和 `degraded_mode_reason: "rerank_auth_failed"` 两条降级提示。
 
-## v6.2.6 - 打包纯净化
+## v1.0.16 - 打包纯净化
 
-发版范围：v6.2.5..v6.2.6。
+发版范围：v1.0.15..v1.0.16。
 
 - 移除 `assets/dashboard/` 重复构建产物（17 个文件，与 `dashboard/frontend/dist/` 完全重复）。
 - 移除被打入 zip 的 `.coveragerc`、`.gitignore`、`scripts/.coveragerc` 等仓库配置私货。
 - 打包方式恢复为 `git ls-files` 严格取源，杜绝非 track 文件混入。
 - 文件数从 558 减至 459，体积从 6.96 MB 降至约 1.89 MB。
 
-## v6.2.5 - CSV BOM 修复与发布说明补齐
+## v1.0.15 - CSV BOM 修复与发布说明补齐
 
-发版范围：`v6.2.4..v6.2.5`。
+发版范围：`v1.0.14..v1.0.15`。
 
 ### 给作者看的变化
 
@@ -92,31 +90,31 @@
 ### 给维护者
 
 - 从源项目同步 references/csv/ 下 9 个中文 CSV 的 BOM 字节。
-- 补齐 releases/ 目录缺失的 v6.2.3 / v6.2.4 发布说明。
+- 补齐 releases/ 目录缺失的 v1.0.13 / v1.0.14 发布说明。
 
 ### 验证
 
 - 9 个中文 CSV 文件与源项目逐字节一致。
 
-## v6.2.4 - 中文文件名编码修复
+## v1.0.14 - 中文文件名编码修复
 
-发版范围：v6.2.3..v6.2.4。
+发版范围：v1.0.13..v1.0.14。
 
 - 修复 zip 打包时中文路径编码损坏问题（templates/genres、references/csv、agents/evals 等目录下的中文文件名经 latin-1/utf-8 误编码后导致文件缺失）
 - 新增打包验证脚本，确保中文文件名在 zip 中与源仓库一致
 
-## v6.2.3 - 清理打包污染
+## v1.0.13 - 清理打包污染
 
-发版范围：v6.2.2..v6.2.3。
+发版范围：`v1.0.12..v1.0.13`。
 
-- 移除 22 个外来 skill 目录（v6.2.2 zip 中不慎混入）
+- 移除 22 个外来 skill 目录（v1.0.12 zip 中不慎混入）
 - 移除冗余 webnovel-writer 子目录嵌套
 
 这里记录每个正式版本对作者和维护者的影响。发布说明优先面向中文网文作者：先说写作体验有什么变化，再补维护者关心的技术细节。
 
-## v6.2.2 - Marvis 运行时适配与 Rerank 降级检测
+## v1.0.12 - Marvis 运行时适配与 Rerank 降级检测
 
-发版范围：`v6.2.1..v6.2.2`。
+发版范围：`v1.0.11..v1.0.12`。
 
 ### 给作者看的变化
 
@@ -140,9 +138,9 @@
 - Rerank 降级检测验证：默认配置触发 `rerank_auth_failed`，有 Key 不触发，硅基/百炼 URL 无 Key 不误触发。
 - `extract_chapter_context.py` 输出中成功透传 `degraded_mode_reason: rerank_auth_failed`。
 
-## v6.2.0 - 写章结果更清楚，失败后更好恢复
+## v1.0.11 - 写章结果更清楚，失败后更好恢复
 
-发版范围：`v6.1.0..v6.2.0`。
+发版范围：`v1.0.10..v1.0.11`。
 
 ### 给作者看的变化
 
@@ -174,12 +172,12 @@
 - `git diff --check` 通过。
 - 版本同步和插件包校验通过。
 
-## v6.1.0 - 项目体检更稳，出问题更容易定位
+## v1.0.10 - 项目体检更稳，出问题更容易定位
 
 - 增加 doctor、project-status、write-gate、projection 重放、hooks、行为评估和插件包校验。
 - 强化 Story System 运行时健康检查和 Marketplace 发布校验。
 
-## v6.0.0 - Story System 主链上线，长篇事实更不容易写乱
+## v1.0.9 - Story System 主链上线，长篇事实更不容易写乱
 
 - 上线合同种子、运行时合同、章节提交、事件审计和投影链路。
 - 补齐主链相关集成测试。

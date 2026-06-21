@@ -9,7 +9,7 @@ purpose: 项目初始化和状态查询时加载，理解数据结构
 
 <instructions>
 
-> ⚠️ 本文件描述 `.webnovel/` 投影层数据结构与早期写作流程，供查询时理解 read-model。v6.0.0 写后主链已改为 Story System（`.story-system/` 合同树 + accepted `CHAPTER_COMMIT`）；下文「双 Agent 架构 / 每章数据链 / Data Agent 直接写入」等描述为历史流程，事实以 Story System 为准。
+> ⚠️ 本文件描述 `.webnovel/` 投影层数据结构与早期写作流程，供查询时理解 read-model。v1.0.9 写后主链已改为 Story System（`.story-system/` 合同树 + accepted `CHAPTER_COMMIT`）；下文「双 Agent 架构 / 每章数据链 / Data Agent 直接写入」等描述为历史流程，事实以 Story System 为准。
 
 ## 目录约定
 
