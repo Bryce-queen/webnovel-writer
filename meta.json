@@ -3,7 +3,7 @@
   "author_icon": "",
   "description": "长篇网文辅助创作系统，提供从初始化设定、卷纲规划、章节写作、质量审查到状态查询的完整创作流程。基于 Story System（合同-提交链）维持长篇一致性，内置 37 个网文题材模板和追读力系统。",
   "detail_describe": "8大核心能力：深度初始化(webnovel-init)、卷纲规划(webnovel-plan)、章节写作(webnovel-write)、智能审查(webnovel-review)、状态查询(webnovel-query)、素材学习(webnovel-learn)、健康诊断(webnovel-doctor)、数据看板(webnovel-dashboard)\nStory System 合同-提交链保证长篇一致性\n37个网文题材模板 + 追读力系统\nPython CLI 数据持久化 + RAG 检索\n角色卡/设定集/大纲/章节/审查一体化管理",
-  "display_description": "长篇网文辅助创作系统 v1.0.18，从初始化到完本的完整创作流水线",
+  "display_description": "长篇网文辅助创作系统 1.0.19，从初始化到完本的完整创作流水线",
   "display_name": "webnovel-writer",
   "download_count": 0,
   "download_url": "",
@@ -25,5 +25,5 @@
     "查询我的小说当前角色关系和伏笔状态",
     "学习某本参考书的爽点套路"
   ],
-  "version": "1.0.18"
+  "version": "1.0.19"
 }

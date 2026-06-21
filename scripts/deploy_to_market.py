@@ -104,13 +104,6 @@ def _symlink_shared(target_dir: Path, skill_name: str):
     """Symlink parent-level shared resources that sub-skills need."""
     PARENT = target_dir.parent / "webnovel-writer"
 
-    # agents: needed by webnovel-init, webnovel-write, webnovel-review
-    agents_needed = {"webnovel-init", "webnovel-write", "webnovel-review"}
-    if skill_name in agents_needed:
-        link = target_dir / "agents"
-        if not link.exists():
-            os.symlink((PARENT / "agents").resolve(), link, target_is_directory=True)
-
     # parent references: needed by webnovel-plan, webnovel-query
     refs_needed = {"webnovel-plan", "webnovel-query"}
     if skill_name in refs_needed:

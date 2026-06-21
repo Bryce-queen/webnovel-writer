@@ -1,5 +1,31 @@
 # 更新日志
 
+## v6.2.9 - 废弃 Sub-Agent 独立定义，迁移至 dispatch_task("file-agent")
+
+发版范围：`v6.2.8..v6.2.9`。
+
+### 给作者看的变化
+
+- 移除了 4 个废弃的独立 Sub-Agent 定义文件（context-agent / reviewer / data-agent / deconstruction-agent），全部改为 dispatch_task("file-agent") + memory_ids 传递审查约束知识。
+- webnovel-write、webnovel-review 的审查与事实提取全部由 file-agent 执行，无需独立 agent 定义。
+- README 同步更新：Skills 数量修正为 8，移除 Agent 章节。
+- 部署脚本 deploy_to_market.py 移除 agents/ 符号链接逻辑。
+
+### 是否需要改旧项目
+
+不需要。
+
+### 给维护者
+
+- `agents/` 目录已删除。
+- `deploy_to_market.py` 中 agents 符号链接代码已移除。
+- `_meta.json` / `meta.json` 版本号 bump 至 1.0.19。
+
+### 验证
+
+- `find . -name 'context-agent.md' -o -name 'reviewer.md' -o -name 'data-agent.md' -o -name 'deconstruction-agent.md'` 无结果。
+- `grep -rn 'agents/' SKILL.md README.md deploy_to_market.py` 无匹配。
+
 ## v6.2.8 - 补回 scripts/ 核心代码目录
 
 发版范围：`v6.2.7..v6.2.8`。

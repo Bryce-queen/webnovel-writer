@@ -454,6 +454,22 @@ def _backup_evidence(project_root: Path, chapter: int) -> tuple[bool, str]:
         for pattern in patterns:
             if any(backup_dir.glob(pattern)):
                 return True, _rel(project_root, backup_dir)
+
+    # Fallback: check Git tags (GitBackupManager uses ch0001 format)
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "tag", "-l", f"ch{chapter:04d}"],
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.stdout.strip():
+            return True, _rel(project_root, backup_dir)
+    except Exception:
+        pass
+
     return False, _rel(project_root, backup_dir)
 
 

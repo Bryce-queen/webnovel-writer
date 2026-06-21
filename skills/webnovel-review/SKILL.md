@@ -9,14 +9,14 @@ argument-hint: "[章号或范围，如 5 或 1-5]"
 
 ## 目标
 
-- 解析真实书项目根，调度统一 `reviewer` 完成结构化审查并落库。
+- 解析真实书项目根，调度统一 `file-agent` 完成结构化审查并落库。
 - 主链事实以 `.story-system/reviews/chapter_{NNN}.review.json` 与 latest accepted `CHAPTER_COMMIT` 为准；`.webnovel/state.json` 仅为兼容投影。
 - 有 `blocking=true` 问题时交用户裁决。
 
 ## 红线
 
-- 必须通过 `Agent` 工具调用 `reviewer`，禁止主流程伪造结论或口头总结代替 subagent 输出。
-- reviewer 只返回严格 JSON；主流程负责用 `shell_executor` + `python -c` 直接覆写到 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`，随后由 `review-commit` 原子完成报告/指标/投影/日志。
+- 必须通过 `dispatch_task` 派发给 `file-agent`，禁止主流程伪造结论或口头总结代替 subagent 输出。
+- file-agent 只返回严格 JSON；主流程负责用 `shell_executor` + `python -c` 直接覆写到 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`，随后由 `review-commit` 原子完成报告/指标/投影/日志。
 - 报告与 metrics 只由 `review-commit` 产出；主流程不伪造 `overall_score`。
 - 项目根不合法 / 缺 `.webnovel/state.json` / 缺待审正文 → 阻断。
 
@@ -59,17 +59,17 @@ cat "{PROJECT_ROOT}/.webnovel/state.json"
 
 确认当前章节号与对应正文文件；缺正文或缺兼容状态文件立即阻断。
 
-### Step 5：调用统一审查 Agent
+### Step 5：调用统一审查（file-agent）
 
-必须通过 `Agent` 工具调用 `reviewer`。审查方法与维度细则由 reviewer 自带，本 Skill 不展开。
+必须通过 `dispatch_task` 派发给 `file-agent`。审查方法与维度细则见已加载的参考文件（core-constraints、review-schema）。
 
-```text
-Use the Agent tool to run `webnovel-writer:reviewer`.
+调用前准备：
+1. 确保 Step 3 中已阅读 `../../references/shared/core-constraints.md` 和 `../../references/review-schema.md`，并记录 memory_ids。
+2. 确认本章正文文件路径 `chapter_file`。
 
-Prompt: chapter={chapter_num}; chapter_file={chapter_file}; project_root={PROJECT_ROOT}; scripts_dir={SKILL_ROOT}/scripts。严格输出 reviewer schema JSON，不评分，不口头总结。
-```
+派发 `dispatch_task(agent_name="file-agent", task="<overall_goal>用户原始需求</overall_goal><current_task>读取正文文件 {chapter_file}，对照上下文中的审查 schema 和核心约束进行全面审查。严格输出 reviewer schema JSON，不评分，不口头总结。</current_task>", memory_ids=[...])`
 
-reviewer 返回后，主流程用 `shell_executor` + `python -c` 把严格 JSON **直接覆写**到 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。`review-commit` 必须把同一路径覆盖为标准 review_result artifact（含 `blocking_count`）。
+file-agent 返回后，主流程用 `shell_executor` + `python -c` 把严格 JSON **直接覆写**到 `{PROJECT_ROOT}/.webnovel/tmp/review_results.json`（file-agent 不持 Write，是这份 artifact 的非写入方）。`review-commit` 必须把同一路径覆盖为标准 review_result artifact（含 `blocking_count`）。
 
 > ⚠️ **禁止使用 `write_file`**：`write_file` 遇同名文件会自增后缀，使下游找不到。必须用 `shell_executor` + `python -c` 直接覆写。绝不允许先 `delete` 再 `write_file`。
 
@@ -77,7 +77,7 @@ reviewer 返回后，主流程用 `shell_executor` + `python -c` 把严格 JSON 
 
 ```json
 {
-  "name": "reviewer",
+  "name": "file-agent",
   "user_label": "写作检查",
   "status": "completed | partial | failed | skipped",
   "problems": [],
@@ -88,7 +88,7 @@ reviewer 返回后，主流程用 `shell_executor` + `python -c` 把严格 JSON 
 }
 ```
 
-reviewer 跳过、失败、输出不完整、正文为空、维度跳过、blocking issue 或耗时异常，必须写入 `problems` / `auto_handled`，不得在最终报告中静默。
+file-agent 跳过、失败、输出不完整、正文为空、维度跳过、blocking issue 或耗时异常，必须写入 `problems` / `auto_handled`，不得在最终报告中静默。
 
 ### Step 6：原子审查提交（review-commit）⭐
 
@@ -111,7 +111,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 ## 成功标准
 
 1. 已解析真实书项目根。
-2. 已通过 `reviewer` 输出结构化问题 JSON，落盘到 `.webnovel/tmp/review_results.json`。
+2. 已通过 `file-agent` 输出结构化问题 JSON，落盘到 `.webnovel/tmp/review_results.json`。
 3. `review-commit` 已完成（报告/指标/兼容投影/日志/用户报告全部自动执行）。
 4. 存在阻断问题时，用户已明确选择处理策略。
 
@@ -121,7 +121,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 
 过程提示每次不超过两行，只说当前动作和影响。少打扰确认策略：无阻断时不询问；存在 blocking issue、缺待审正文、用户要求是否立即修改时才询问。
 
-需要用户裁决时使用有限选项，并说明影响。卡住时必须说明卡点、已完成内容和恢复建议，例如"reviewer 结果已保存，review-commit 失败；重新运行 `/webnovel-review {chapter_num}` 会从原子提交继续"。
+需要用户裁决时使用有限选项，并说明影响。卡住时必须说明卡点、已完成内容和恢复建议，例如"file-agent 结果已保存，review-commit 失败；重新运行 `/webnovel-review {chapter_num}` 会从原子提交继续"。
 
 不可恢复故障才在最终报告提示 `.webnovel/logs/run_last.log`；平时只保留日志，不打扰作者。`review-commit` 已内置 `user-report`，无需单独调用。
 
@@ -151,7 +151,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
 
 状态规则：
 - 有 blocking 问题且用户未选择处理策略时，最终状态为"需要你处理"。
-- reviewer 跳过、失败或输出不完整时，最终状态不得写"已完成"。
+- file-agent 跳过、失败或输出不完整时，最终状态不得写"已完成"。
 
 异常分类：
 - 已自动处理：review-commit 自动重试报告/指标/投影落库。
