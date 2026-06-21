@@ -34,6 +34,23 @@ argument-hint: "[章号或范围，如 5 或 1-5]"
 
 > 调用规则：Step 5 的三个 jwynia 诊断必须在 `dispatch_task("file-agent")` 之前完成；file-agent 的审查 prompt 中需包含 jwynia 诊断摘要。
 
+## 流水线文件依赖链
+
+> 每一步的执行必要条件是：上一步的产出文件必须存在。以文件为基准，缺上一步落盘文件直接拒绝执行当前步骤。
+
+| 步骤 | 上一步产出物（本步入口硬校验） | 本步产出物 | 校验方 |
+|------|---------------------------|-----------|--------|
+| Step 1 | — | 确认 `PROJECT_ROOT` 含 `.webnovel/state.json` | `webnovel.py where` |
+| Step 2 | Step 1: `PROJECT_ROOT` 已解析 | runtime contracts | —（条件触发） |
+| Step 3 | —（知识加载） | 无文件 | — |
+| Step 4 | `.webnovel/state.json` | 确认章节正文存在 | Agent（读文件 / 无则阻断） |
+| Step 5 | 章节正文文件 | `prose_check.txt`, `prose_critique.txt`, `story_sense.txt` | Agent（按 step 写盘） |
+| Step 6 | Step 5 三份诊断产物 | `review_results.json` | **Agent 前置检查诊断产物** |
+| Step 7 | Step 5 诊断 + Step 6 `review_results.json` | 报告/指标/投影/日志 | `_validate_review_results` + `_validate_diagnostics`（脚本硬阻断） |
+| Step 8 | Step 7 审查完成 | 用户裁决 | — |
+
+> **硬阻断点**：Step 7（review-commit / review-pipeline）在脚本层强制校验 `review_results.json` 存在+非空 + 三份诊断产物存在+非空。缺任一直接 `sys.exit`，不可能绕过。
+
 ## 执行流程
 
 ### Step 1：解析项目根
@@ -105,6 +122,16 @@ python -X utf8 "{SKILL_ROOT}/references/prose_check_not_a_but_b.py" "{chapter_fi
 
 ### Step 6：调用统一审查（file-agent）
 
+**前置硬校验（Agent 执行，不可跳过）**：调用 `dispatch_task` 之前，先用 `shell_executor` 确认以下三个文件存在且非空：
+
+```bash
+ls -l "{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}"/{prose_check.txt,prose_critique.txt,story_sense.txt}
+```
+
+任一缺失或为空 → **阻断**，拒绝派发 file-agent，提示用户先执行 Step 5。
+
+通过后再执行以下步骤。
+
 必须通过 `dispatch_task` 派发给 `file-agent`。审查方法与维度细则见已加载的参考文件（core-constraints、review-schema）。
 
 调用前准备：
@@ -147,7 +174,11 @@ python -X utf8 "{SKILL_ROOT}/scripts/webnovel.py" --project-root "{PROJECT_ROOT}
   --report-file "审查报告/第{chapter_num}章审查报告.md" \
 ```
 
-> ⚠️ **默认强制校验**：`review-commit` 和 `review-pipeline` 会自动检查 `{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}/` 下是否存在 `prose_check.txt`、`prose_critique.txt`、`story_sense.txt` 三个必需产物。缺任一文件直接阻断退出，拒绝落库。正常情况下无需任何额外参数即可生效。仅在批处理重算等非审查场景可传 `--skip-diagnostics-check` 豁免。这确保 Step 7 执行前 Step 5（prose-check + jwynia 诊断）一定已完成。诊断产物目录结构参见 Step 5。
+> ⚠️ **默认强制校验**：`review-commit` 和 `review-pipeline` 会自动执行两道校验：
+> 1. 检查 `--review-results` 指向的审查结果 JSON 存在且非空（缺则阻断：Step 6 未完成）
+> 2. 检查 `{PROJECT_ROOT}/.webnovel/tmp/diagnostics/ch{chapter_num}/` 下 `prose_check.txt`、`prose_critique.txt`、`story_sense.txt` 三个必需产物存在且非空（缺则阻断：Step 5 未完成）
+>
+> 正常情况下无需任何额外参数即可生效。仅在批处理重算等非审查场景可传 `--skip-diagnostics-check` 豁免（同时跳过两道校验）。
 
 ### Step 8：处理阻断
 

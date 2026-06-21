@@ -20,7 +20,7 @@ from data_modules.index_manager import IndexManager
 from data_modules.user_report import build_user_report, format_user_report
 from data_modules.run_logger import write_run_log
 
-from review_pipeline import _build_review_metrics_record, _validate_diagnostics, build_review_artifacts, write_review_report
+from review_pipeline import _build_review_metrics_record, _validate_diagnostics, _validate_review_results, build_review_artifacts, write_review_report
 
 
 def _die(stage: str, errors: list[str]) -> None:
@@ -44,6 +44,7 @@ def main() -> None:
 
     if not args.skip_diagnostics_check:
         diag_dir = project_root / ".webnovel" / "tmp" / "diagnostics" / f"ch{chapter}"
+        _validate_review_results(Path(args.review_results))
         _validate_diagnostics(diag_dir)
 
     # ── 1. 审查报告 + 指标落库（review-pipeline） ──

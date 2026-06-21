@@ -182,6 +182,20 @@ OPTIONAL_DIAGNOSTICS = [
 ]
 
 
+def _validate_review_results(review_results_path: Path) -> None:
+    """校验 Step 6 审查结果 JSON 存在且非空。"""
+    if not review_results_path.is_file():
+        sys.exit(
+            f"[pipeline 阻断] 审查结果文件不存在：{review_results_path}\n"
+            "请确保已执行 SKILL.md Step 6（file-agent 审查），将结果落盘后再调用本 pipeline。"
+        )
+    if review_results_path.stat().st_size == 0:
+        sys.exit(
+            f"[pipeline 阻断] 审查结果文件为空：{review_results_path}\n"
+            "请检查 Step 6 执行是否正常，file-agent 是否有有效输出。"
+        )
+
+
 def _validate_diagnostics(diag_dir: Path) -> None:
     if not diag_dir.is_dir():
         sys.exit(f"[pipeline 阻断] 诊断产物目录不存在：{diag_dir}\n"
@@ -236,6 +250,7 @@ def main() -> None:
     diagnostics: dict[str, str] = {}
     diag_dir = project_root / ".webnovel" / "tmp" / "diagnostics" / f"ch{args.chapter}"
     if not args.skip_diagnostics_check:
+        _validate_review_results(review_results_path)
         _validate_diagnostics(diag_dir)
         diagnostics = _load_diagnostics(diag_dir)
 
