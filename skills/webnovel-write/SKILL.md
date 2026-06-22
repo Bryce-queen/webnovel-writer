@@ -85,7 +85,7 @@ python -X utf8 "{SKILL_ROOT}/scripts/reference_search.py" --skill write --table 
 | Step 1 | 合同文件（准备产出） | 写作任务书 | Agent |
 | Step 2 | 写作任务书（Step 1 产出） | 章节正文 `CHAPTER_FILE` | Agent |
 | **Step 3** | **章节正文** `CHAPTER_FILE`（Step 2 产出） | `review_results.json` + `review_metrics.json` + 审查报告 | **Agent: `test -s CHAPTER_FILE`** |
-| Step 4 | 章正文 + `review_results.json`（Step 3 产出） | 润色后章正文 | — |
+| **Step 4** | **`review_results.json`**（Step 3 产出） | 润色后章正文 | **Agent: `test -s review_results.json`** |
 | **Step 5.1** | **`review_results.json` + `CHAPTER_FILE`**（Step 3+2 产出） | `fulfillment_result.json` / `disambiguation_result.json` / `extraction_result.json` | **Agent: `test -s` 两份文件** |
 | Step 5.2 | Step 3+5.1 全部产出 | chapter-commit（原子操作，内含 write-gate precommit 门控） | `chapter-commit` 脚本 |
 | Step 5.3 | Step 5.2 提交成功 | 投影写入 | `write-gate --stage postcommit` |
@@ -233,6 +233,14 @@ python -X utf8 -c "import json,os; from pathlib import Path; root=Path(os.enviro
 ```
 
 ### Step 4：润色
+
+**前置硬校验**：确认审查结果存在（`--minimal` 模式下跳过）：
+
+```bash
+test -s "{PROJECT_ROOT}/.webnovel/tmp/review_results.json" || echo "阻断：review_results.json 不存在或为空（请先完成 Step 3 审查）"
+```
+
+不通过 → **阻断**，拒绝润色（`--minimal` 模式下跳过此校验）。
 
 `references/polish-guide.md` 区段读：先用 `shell_executor` grep 匹配 `^#{1,3} ` 定位锚点行号，再 `read_text` 的 offset/limit 取段——主路径取 `## 2. 执行顺序（必须按序）`；Anti-AI 终检单独区段取 `## 2A. Anti-AI 检测细则` 与 `## Phase 1 增补：Anti-AI 规范（7层，原版）`（词库段），不全文读。`references/writing/typesetting.md`、`references/style-adapter.md` 短文件，全文 `read_text`。
 

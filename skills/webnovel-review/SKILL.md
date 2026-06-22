@@ -43,7 +43,7 @@ argument-hint: "[章号或范围，如 5 或 1-5]"
 | Step 1 | — | 确认 `PROJECT_ROOT` 含 `.webnovel/state.json` | `webnovel.py where` |
 | Step 2 | Step 1: `PROJECT_ROOT` 已解析 | runtime contracts | —（条件触发） |
 | Step 3 | —（知识加载） | 无文件 | — |
-| Step 4 | `.webnovel/state.json` | 确认章节正文存在 | Agent（读文件 / 无则阻断） |
+| Step 4 | `.webnovel/state.json` + 章节正文文件 | 确认章节正文存在 | Agent（读文件 / 无则阻断） |
 | Step 5 | 章节正文文件 | `prose_check.txt`, `prose_critique.txt`, `story_sense.txt` | Agent（按 step 写盘） |
 | Step 6 | Step 5 三份诊断产物 | `review_results.json` | **Agent 前置检查诊断产物** |
 | Step 7 | Step 5 诊断 + Step 6 `review_results.json` | 报告/指标/投影/日志 | `_validate_review_results` + `_validate_diagnostics`（脚本硬阻断） |

@@ -13,7 +13,7 @@ argument-hint: "[要记住的写作经验]"
 - 用统一入口解析项目根，避免写错目录：
 
 ```bash
-export PROJECT_ROOT="$(python -X utf8 "/Users/aloha/Library/Application Support/com.tencent.mac.marvis/MarvisData/User/671DE13D0D82CB9B9E912E7E3C023532/skills/custom/webnovel-writer/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" where)"
+export PROJECT_ROOT="$(python -X utf8 "../webnovel-writer/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" where)"
 ```
 
 ## 目标
@@ -27,7 +27,7 @@ export PROJECT_ROOT="$(python -X utf8 "/Users/aloha/Library/Application Support/
 3. 调用 `project-memory add-pattern` 写入，不得手写或拼接 JSON：
 
 ```bash
-python -X utf8 "/Users/aloha/Library/Application Support/com.tencent.mac.marvis/MarvisData/User/671DE13D0D82CB9B9E912E7E3C023532/skills/custom/webnovel-writer/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" project-memory add-pattern \
+python -X utf8 "../webnovel-writer/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" project-memory add-pattern \
   --pattern-type "{pattern_type}" \
   --description "{用户输入或提炼后的完整描述}" \
   --category "{分类，可空}" \

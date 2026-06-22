@@ -24,13 +24,13 @@ argument-hint: "[--chapter N] [--deep]"
 短状态：
 
 ```bash
-python -X utf8 "/Users/aloha/Library/Application Support/com.tencent.mac.marvis/MarvisData/User/671DE13D0D82CB9B9E912E7E3C023532/skills/custom/webnovel-writer/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" project-status --format summary
+python -X utf8 "../webnovel-writer/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" project-status --format summary
 ```
 
 标准体检：
 
 ```bash
-python -X utf8 "/Users/aloha/Library/Application Support/com.tencent.mac.marvis/MarvisData/User/671DE13D0D82CB9B9E912E7E3C023532/skills/custom/webnovel-writer/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" doctor --format text
+python -X utf8 "../webnovel-writer/scripts/webnovel.py" --project-root "{PROJECT_ROOT}" doctor --format text
 ```
 
 指定章节加 `--chapter {chapter_num}`，深度体检加 `--deep`。
